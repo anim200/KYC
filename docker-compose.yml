@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # 1. Frontend (React served by Nginx)
+  frontend:
+    build: ./kyc-react
+    container_name: kyc_frontend
+    ports:
+      - "5173:80" # Maps localhost:5173 to container port 80
+    depends_on:
+      - backend
+    networks:
+      - kyc-network
+
+  # 2. Backend (Node.js API)
+  backend:
+    build: ./kyc-backend
+    container_name: kyc_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      # Connect to services by name, NOT localhost
+      - MONGO_URI=mongodb://root:example@mongo:27017/kyc?authSource=admin
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - FRONTEND_URL=http://localhost:5173
+      - JWT_SECRET=put_a_safe_secret_here_or_use_env_file
+    volumes:
+      - ./kyc-backend/logs:/app/logs # Syncs container logs to your local folder
+      - ./kyc-backend/pdfs:/app/pdfs # Syncs generated PDFs
+    depends_on:
+      - mongo
+      - rabbitmq
+    networks:
+      - kyc-network
+
+  # 3. Database (MongoDB)
+  mongo:
+    image: mongo:latest
+    container_name: kyc_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - kyc-network
+
+  # 4. Message Queue (RabbitMQ)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: kyc_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - kyc-network
+
+  # 5. Database Admin (Mongo Express - Optional)
+  mongo-express:
+    image: mongo-express
+    container_name: kyc_mongo_express
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_BASICAUTH_USERNAME=root
+      - ME_CONFIG_BASICAUTH_PASSWORD=example
+    depends_on:
+      - mongo
+    networks:
+      - kyc-network
+
+volumes:
+  mongo-data:
+
+networks:
+  kyc-network:
+    driver: bridge

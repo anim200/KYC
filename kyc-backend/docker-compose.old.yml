@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # ... your existing mongo service ...
+  mongo:
+    image: mongo:latest
+    container_name: kyc_mongo_container
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - kyc-network
+
+  # ... your existing mongo-express service ...
+  mongo-express:
+    # (Keep your existing config here)
+    image: mongo-express
+    container_name: kyc_admin_container
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_BASICAUTH_USERNAME=root
+      - ME_CONFIG_BASICAUTH_PASSWORD=example
+    depends_on:
+      - mongo
+    networks:
+      - kyc-network
+
+  # 👇 ADD THIS SECTION FOR RABBITMQ 👇
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: kyc_rabbit_container
+    ports:
+      - "5672:5672"   # The port your Node app talks to
+      - "15672:15672" # The Web UI port
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - kyc-network
+
+volumes:
+  mongo-data:
+
+networks:
+  kyc-network:
